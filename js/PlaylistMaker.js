@@ -4,16 +4,38 @@ PlaylistMaker["ttfmList"] = {}
 
 // THIS WORKED 
 PlaylistMaker.readTtfmList = function() {
-    var i, artistSongsAr, prop, myList, mySong;
     $.getJSON("js/ttfmlist.json", function(data) {
         PlaylistMaker["ttfmList"] = data;
     });
+}
+
+// Returns true if titles match, false if not
+PlaylistMaker.titlesMatch = function(ttfmTitle, spotifyTitle) {
+    var piecesAr, firstPieceSpot;
+    if (ttfmTitle == spotifyTitle) {
+        PlaylistMaker.logIt("following title matched exactly");
+        return true;
+    }
+    piecesAr = spotifyTitle.split(' - ');
+    firstPieceSpot = piecesAr[0];
+    if (ttfmTitle.trim() == firstPieceSpot.trim()) {
+        PlaylistMaker.logIt("following title - firstPieceSpot matched");
+        PlaylistMaker.logIt("firstPieceSpot: "+firstPieceSpot);
+        return true;
+    } 
+    if (ttfmTitle.trim().toLowerCase() == firstPieceSpot.trim().toLowerCase()) {
+        PlaylistMaker.logIt("following title - matched after downcase");
+        PlaylistMaker.logIt("firstPieceSpot: "+firstPieceSpot);
+        return true;
+    }
+    return false;
 }
 
 // WORKING
 PlaylistMaker.getAllSpotifyTracks = function(playlist) {
     var k;
     PlaylistMaker.countArtistsNotMatched = 0;
+    PlaylistMaker.countTitlesNotMatched = 0;
     playlist.tracks.snapshot().done(function(s){
         // callback called after ALL Spotify tracks gotten
         for (k=0; k<s.length; k++) {
@@ -25,6 +47,7 @@ PlaylistMaker.getAllSpotifyTracks = function(playlist) {
         }
         // Log stats
         PlaylistMaker.logIt("Number with Artist not matched: " + PlaylistMaker.countArtistsNotMatched);
+        PlaylistMaker.logIt("Number with Title not matched: " + PlaylistMaker.countTitlesNotMatched);
     });    
 }
 
@@ -47,7 +70,7 @@ PlaylistMaker.processSpotifyTrack = function(spotifyTitle, spotifyArtist, index)
 
 // Returns ttfmTrack (a song object) if match found, null it no match found
 PlaylistMaker.matchTtfmTrack = function(spotifyTitle, spotifyArtist) {
-    var i, myArtistSongs, mySong, spotifyArtistMod, ttfmPropertyString;
+    var i, myArtistSongs, ttfmSong, spotifyArtistMod, ttfmPropertyString;
     ttfmPropertyString = spotifyArtist;
     if (!PlaylistMaker["ttfmList"].hasOwnProperty(ttfmPropertyString)) {
         // Exact artist match not found; let's try removing 'the'
@@ -67,17 +90,19 @@ PlaylistMaker.matchTtfmTrack = function(spotifyTitle, spotifyArtist) {
         }
     }    
     // Artist matched if we are here
+    // Now we try to match the title
     myArtistSongs = PlaylistMaker["ttfmList"][ttfmPropertyString];
     for (i = 0; i < myArtistSongs.length; i++) {
-        mySong = myArtistSongs[i];
-        if (mySong["title"] == spotifyTitle) {
+        ttfmSong = myArtistSongs[i];
+        if (PlaylistMaker.titlesMatch(ttfmSong["title"], spotifyTitle)) {
             // match found
             PlaylistMaker.logIt("match found: " + spotifyArtist + ' - ' + spotifyTitle );
-            return mySong;            
+            return ttfmSong;            
         } 
     } // for
     // match not found for title 
     PlaylistMaker.logIt("MATCH FOUND FOR ARTIST, NOT TITLE: " + spotifyArtist + ' - ' + spotifyTitle );
+    PlaylistMaker.countTitlesNotMatched++;
     return null;
 }
 
